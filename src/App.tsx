@@ -2,8 +2,16 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "@/hooks/useAuth";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import SignIn from "./pages/SignIn";
+import SignUp from "./pages/SignUp";
+import CareerTest from "./pages/CareerTest";
+import ProfileCompletion from "./pages/ProfileCompletion";
+import UserDashboard from "./pages/UserDashboard";
+import MentorDashboard from "./pages/MentorDashboard";
+import ReportView from "./pages/ReportView";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -11,15 +19,42 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <AuthProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<SignIn />} />
+            <Route path="/signup" element={<SignUp />} />
+            <Route path="/test" element={
+              <ProtectedRoute requiredRole="user">
+                <CareerTest />
+              </ProtectedRoute>
+            } />
+            <Route path="/profile" element={
+              <ProtectedRoute requiredRole="user">
+                <ProfileCompletion />
+              </ProtectedRoute>
+            } />
+            <Route path="/dashboard" element={
+              <ProtectedRoute requiredRole="user">
+                <UserDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/mentor/dashboard" element={
+              <ProtectedRoute requiredRole="mentor">
+                <MentorDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/report/:userId" element={
+              <ProtectedRoute>
+                <ReportView />
+              </ProtectedRoute>
+            } />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

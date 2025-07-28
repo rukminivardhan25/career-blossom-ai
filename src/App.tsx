@@ -27,22 +27,22 @@ const App = () => (
             <Route path="/" element={<SignIn />} />
             <Route path="/signup" element={<SignUp />} />
             <Route path="/test" element={
-              <ProtectedRoute requiredRole="user">
+              <ProtectedRoute requiredRole="USER">
                 <CareerTest />
               </ProtectedRoute>
             } />
             <Route path="/profile" element={
-              <ProtectedRoute requiredRole="user">
+              <ProtectedRoute requiredRole="USER">
                 <ProfileCompletion />
               </ProtectedRoute>
             } />
             <Route path="/dashboard" element={
-              <ProtectedRoute requiredRole="user">
+              <ProtectedRoute requiredRole="USER">
                 <UserDashboard />
               </ProtectedRoute>
             } />
-            <Route path="/mentor/dashboard" element={
-              <ProtectedRoute requiredRole="mentor">
+            <Route path="/admin/dashboard" element={
+              <ProtectedRoute requiredRole="ADMIN">
                 <MentorDashboard />
               </ProtectedRoute>
             } />

@@ -20,7 +20,9 @@ export default function SignUp() {
     e.preventDefault();
     setLoading(true);
     
-    const { error } = await signUp(email, password, fullName, role);
+    // Map role to backend expected values
+    const backendRole = role === 'user' ? 'USER' : 'ADMIN';
+    const { error } = await signUp(email, password, fullName, backendRole);
     
     if (!error) {
       navigate('/');

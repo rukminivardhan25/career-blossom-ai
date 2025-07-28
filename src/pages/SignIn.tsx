@@ -14,16 +14,16 @@ export default function SignIn() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (user && userProfile) {
+    if (user) {
       // Redirect based on role and completion status
-      if (userProfile.role === 'mentor') {
-        navigate('/mentor/dashboard');
+      if (user.role === 'ADMIN') {
+        navigate('/admin/dashboard');
       } else {
         // Check if user has completed test and profile
         navigate('/dashboard');
       }
     }
-  }, [user, userProfile, navigate]);
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

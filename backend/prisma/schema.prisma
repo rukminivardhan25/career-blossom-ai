@@ -1,0 +1,118 @@
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["public"]
+}
+
+enum UserRole {
+  USER
+  ADMIN
+
+  @@schema("public")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  role      UserRole @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  profile     Profile?
+  testResults TestResult[]
+  reports     Report[]
+  careerPaths CareerPath[]
+
+  @@map("users")
+  @@schema("public")
+}
+
+model Profile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  fullName    String
+  age         Int?
+  gender      String?
+  education   String?
+  experience  String?
+  interests   String[]
+  skills      String[]
+  goals       String?
+  location    String?
+  phone       String?
+  avatar      String?
+  isCompleted Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade) 
+
+  @@map("profiles")
+  @@schema("public")
+}
+
+model TestResult {
+  id        String   @id @default(cuid())
+  userId    String
+  answers   Json     // Store test answers as JSON
+  score     Int?
+  completed Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade) 
+
+  @@map("test_results")
+  @@schema("public")
+}
+
+model Report {
+  id                String   @id @default(cuid())
+  userId            String
+  careerSuggestions Json
+  skillGapAnalysis  Json
+  recommendations   Json
+  strengths         String[]
+  weaknesses        String[]
+  opportunities     String[]
+  threats           String[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade) 
+
+  @@map("reports")
+  @@schema("public")
+}
+
+model CareerPath {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  requirements String[]
+  skills      String[]
+  salary      String?
+  growth      String?
+  demand      String?
+  isActive    Boolean  @default(true)
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  users User[]
+
+  @@map("career_paths")
+  @@schema("public")
+}

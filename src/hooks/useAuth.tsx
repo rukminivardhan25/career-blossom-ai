@@ -1,25 +1,25 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
+import { apiService, User, Profile, AuthStatus } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 
 interface AuthContextType {
   user: User | null;
-  session: Session | null;
-  userProfile: any | null;
+  userProfile: Profile | null;
+  authStatus: AuthStatus | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, fullName: string, role: 'user' | 'mentor') => Promise<{ error: any }>;
+  signUp: (email: string, password: string, fullName: string, role: 'USER' | 'ADMIN') => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   refreshUserProfile: () => Promise<void>;
+  refreshAuthStatus: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [userProfile, setUserProfile] = useState<any | null>(null);
+  const [userProfile, setUserProfile] = useState<Profile | null>(null);
+  const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -27,118 +27,134 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (!user) return;
     
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-      
-      if (error) throw error;
-      setUserProfile(data);
+      const response = await apiService.getProfile();
+      if (response.success && response.data) {
+        setUserProfile(response.data.profile);
+      }
     } catch (error) {
       console.error('Error fetching user profile:', error);
     }
   };
 
-  useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          setTimeout(() => {
-            refreshUserProfile();
-          }, 0);
-        } else {
-          setUserProfile(null);
-        }
-        setLoading(false);
+  const refreshAuthStatus = async () => {
+    if (!user) return;
+    
+    try {
+      const response = await apiService.getAuthStatus();
+      if (response.success && response.data) {
+        setAuthStatus(response.data.status);
       }
-    );
+    } catch (error) {
+      console.error('Error fetching auth status:', error);
+    }
+  };
 
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        setTimeout(() => {
-          refreshUserProfile();
-        }, 0);
+  useEffect(() => {
+    // Check for existing token and validate it
+    const checkAuth = async () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          const response = await apiService.getAuthStatus();
+          if (response.success && response.data) {
+            setUser(response.data.user);
+            setAuthStatus(response.data.status);
+            await refreshUserProfile();
+          } else {
+            // Token is invalid, clear it
+            apiService.clearToken();
+            setUser(null);
+            setUserProfile(null);
+            setAuthStatus(null);
+          }
+        } catch (error) {
+          console.error('Auth check failed:', error);
+          apiService.clearToken();
+          setUser(null);
+          setUserProfile(null);
+          setAuthStatus(null);
+        }
       }
       setLoading(false);
-    });
+    };
 
-    return () => subscription.unsubscribe();
+    checkAuth();
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    
-    if (error) {
+    try {
+      const response = await apiService.login({ email, password });
+      
+      if (response.success && response.data) {
+        apiService.setToken(response.data.token);
+        setUser(response.data.user);
+        setAuthStatus(response.data.user.status);
+        await refreshUserProfile();
+        
+        toast({
+          title: "Success",
+          description: "Login successful!",
+        });
+      }
+      
+      return { error: null };
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Login failed",
         variant: "destructive",
       });
+      
+      return { error };
     }
-    
-    return { error };
   };
 
-  const signUp = async (email: string, password: string, fullName: string, role: 'user' | 'mentor') => {
-    const redirectUrl = `${window.location.origin}/`;
-    
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          full_name: fullName,
-          role: role,
-        },
-      },
-    });
-    
-    if (error) {
+  const signUp = async (email: string, password: string, fullName: string, role: 'USER' | 'ADMIN') => {
+    try {
+      const response = await apiService.signup({ email, password, fullName, role });
+      
+      if (response.success && response.data) {
+        apiService.setToken(response.data.token);
+        setUser(response.data.user);
+        setAuthStatus(response.data.user.status);
+        await refreshUserProfile();
+        
+        toast({
+          title: "Success",
+          description: "Account created successfully!",
+        });
+      }
+      
+      return { error: null };
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Signup failed",
         variant: "destructive",
       });
-    } else {
-      toast({
-        title: "Success",
-        description: "Account created successfully! Please check your email to confirm your account.",
-      });
+      
+      return { error };
     }
-    
-    return { error };
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    apiService.clearToken();
     setUser(null);
-    setSession(null);
     setUserProfile(null);
+    setAuthStatus(null);
   };
 
   return (
     <AuthContext.Provider value={{
       user,
-      session,
       userProfile,
+      authStatus,
       loading,
       signIn,
       signUp,
       signOut,
       refreshUserProfile,
+      refreshAuthStatus,
     }}>
       {children}
     </AuthContext.Provider>
